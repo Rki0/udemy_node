@@ -1,0 +1,21 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  // restart를 사용하여 코드를 수정했을 때 디버거가 자동으로 다시 실행되게 한다.
+  // nodemon 사용할 때는 console을 integratedTerminal로 사용해야한다.
+  // 디버거는 nodemon을 종료할 수 없기 때문이다.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/app.js",
+      "restart": true,
+      "runtimeExecutable": "nodemon",
+      "console": "integratedTerminal"
+    }
+  ]
+}
