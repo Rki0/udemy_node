@@ -1,29 +1,27 @@
 const path = require("path");
+
 const express = require("express");
 
-const rootDir = require("../util/path");
+const shopController = require("../controllers/shop");
 
 const router = express.Router();
 
-const adminData = require("./admin"); // node 서버 상에 저장되어서 전역에 공유됨. 따라서 다른 파일에서 업데이트되면 여기서도 업데이트 됨.
+router.get("/", shopController.getIndex);
 
-router.get("/", (req, res, next) => {
-  // console.log(adminData.products); // admin에서 정의했는데도 업데이트되면 여기서도 볼 수 있음!
+router.get("/products", shopController.getProducts);
 
-  // res.sendFile(path.join(rootDir, "views", "shop.html"));
+// 동적 세그먼트를 사용하기 때문에 라우트 설정할 때 순서가 중요함.
+// products/delete를 얘보다 아래에 넣으면 delete가 :productId가 되어버려서 비정상 동작을 할 수도 있다는 뜻!
+router.get("/products/:productId", shopController.getProduct);
 
-  const products = adminData.products;
-  // template engine을 사용할 때는 res.render()를 사용해서 파일을 표현한다.
-  // shop.pug를 입력해도 되지만, 지금 프로젝트는 pug를 기본으로 설정해놨기 때문에 shop만 적어도 된다.
-  // res.render("shop", { prods: products, docTitle: "Shop", path: "/" }); // template에 동적인 값들을 전달할 수도 있다!
-  res.render("shop", {
-    prods: products,
-    pageTitle: "Shop",
-    path: "/",
-    hasProducts: products.length > 0,
-    activeShop: true,
-    productCSS: true,
-  });
-});
+router.get("/cart", shopController.getCart);
+
+router.post("/cart", shopController.postCart);
+
+router.post("/cart-delete-item", shopController.postCartDeleteProduct);
+
+router.get("/orders", shopController.getOrders);
+
+router.get("/checkout", shopController.getCheckout);
 
 module.exports = router;
