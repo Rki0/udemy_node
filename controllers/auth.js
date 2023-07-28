@@ -1,5 +1,18 @@
 const bcrypt = require("bcryptjs");
+const nodemailer = require("nodemailer");
+
 const User = require("../models/user");
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.NODEMAILER_USER,
+    pass: process.env.NODEMAILER_PASS,
+  },
+});
 
 exports.getLogin = (req, res, next) => {
   let message = req.flash("error");
@@ -33,7 +46,7 @@ exports.getSignup = (req, res, next) => {
   });
 };
 
-exports.postLogin = (req, res, next) => {
+exports.postLogin = async (req, res, next) => {
   // res.setHeader("Set-Cookie", "loggedIn=true; HttpOnly");
   // req.session.isLoggedIn = true; // express-session을 활용한 session은 브라우저와 사용자를 식별한다. 다른 브라우저로 접속하면 같은 session을 사용하지 않는다. 유저간 같은 session을 사용하지 않는다.
   // 사용자를 식별하기 위해서 cookie(세션 쿠키)를 사용하지만 중요한 정보는 server-side에 저장된다. 브라우저를 꺼도 남아있으며, 만료되면 사라진다.
@@ -42,6 +55,20 @@ exports.postLogin = (req, res, next) => {
 
   const email = req.body.email;
   const password = req.body.password;
+
+  // 꽤나 시간이 걸리므로, 가장 나중에 얘를 실행하던지, redirect 후 얘를 실행하던지 하는게 좋을듯. await 대신 return으로 ㅇㅇ.
+  await transporter
+    .sendMail({
+      from: `"Udemy Node.js Study" <${process.env.NODEMAILER_USER}>`,
+      to: process.env.NODEMAILER_USER,
+      subject: "This is test email from node.js server.",
+      text: "This is text",
+      html: "<h1>This is HTML</h1>",
+    })
+    .then(() => {
+      console.log("email is sent.");
+    })
+    .catch((err) => console.log(err));
 
   User.findOne({ email: email })
     .then((user) => {
