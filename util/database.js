@@ -1,26 +1,38 @@
-// const mysql = require("mysql2");
-
+const mongodb = require("mongodb");
 const dotenv = require("dotenv");
+const MongoClient = mongodb.MongoClient;
 
 dotenv.config();
 
-// // connection을 사용하는 방법과 pool을 사용하는 방법이 있는데
-// // 전자는 쿼리 실행마다 연결을 했다가 끊었다가 하는 것이고, 후자는 지속적으로 연결시켜놓는 것이다.
-// // 쿼리가 실행되면 풀을 사용했다가 끝나면 다른 쿼리가 사용할 수 있게 풀을 돌려주는 방식. 풀은 애플리케이션이 종료될 때 종료.
-// const pool = mysql.createPool({
-//   host: "localhost",
-//   user: "root",
-//   database: "udemy_node",
-//   password: process.env.DB_PASSWORD,
-// });
+// 파일 내에서만 쓰일 거라는 것을 암시하는 _, 그냥 그렇다고~
+let _db;
 
-// module.exports = pool.promise();
+// 이 방법은 매번 연견을 만들 뿐만 아니라, 종료할 수도 없기 때문에 좋은 방법이 아니다.
+const mongoConnect = (callback) => {
+  MongoClient.connect(
+    `mongodb+srv://pky00823:${process.env.DB_PASSWORD}@cluster0.cqkdk1n.mongodb.net/shop?retryWrites=true`
+  )
+    .then((client) => {
+      console.log("Connected!");
 
-const Sequelize = require("sequelize");
+      _db = client.db();
 
-const sequelize = new Sequelize("udemy_node", "root", process.env.DB_PASSWORD, {
-  dialect: "mysql",
-  host: "localhost",
-});
+      callback();
+    })
+    .catch((err) => {
+      console.log(err);
+      throw err;
+    });
+};
 
-module.exports = sequelize;
+// 연결되어 있는 DB 인스턴스를 반환하는 함수
+const getDb = () => {
+  if (_db) {
+    return _db;
+  }
+
+  throw "No database found!";
+};
+
+exports.mongoConnect = mongoConnect;
+exports.getDb = getDb;

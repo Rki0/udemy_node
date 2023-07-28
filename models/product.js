@@ -1,59 +1,75 @@
-// const db = require("../util/database");
+const mongodb = require("mongodb");
+const getDb = require("../util/database").getDb;
 
-// const Cart = require("./cart");
+class Product {
+  constructor(title, price, description, imageUrl, id, userId) {
+    this.title = title;
+    this.price = price;
+    this.description = description;
+    this.imageUrl = imageUrl;
+    this._id = id ? new mongodb.ObjectId(id) : null;
+    this.userId = userId;
+  }
 
-// module.exports = class Product {
-//   constructor(id, title, imageUrl, description, price) {
-//     this.id = id;
-//     this.title = title;
-//     this.imageUrl = imageUrl;
-//     this.description = description;
-//     this.price = price;
-//   }
+  save() {
+    const db = getDb();
+    let dbOp;
 
-//   save() {
-//     return db.execute(
-//       "INSERT INTO products (title, price, imageUrl, description) VALUES (?,?,?,?)",
-//       [this.title, this.price, this.imageUrl, this.description]
-//     );
-//   }
+    // constructor에서 this._id에 new ~ 처리를 해놔서 id가 들어오지 않은 상황에서도 생성이 되버리는 바람에 이 부분이 true로 작동함
+    if (this._id) {
+      dbOp = db
+        .collection("products")
+        .updateOne({ _id: this._id }, { $set: this });
+    } else {
+      dbOp = db.collection("products").insertOne(this);
+    }
 
-//   static deleteById(id) {}
+    return dbOp
+      .then((result) => {
+        console.log(result);
+      })
+      .catch((err) => console.log(err));
+  }
 
-//   // cb를 호출하면 fetchAll을 호출하는 컨트롤러로 이동하게 되고, fetchAll에 인자로 들어있는 콜백 함수로 넘겨주게 된다.
-//   static fetchAll() {
-//     return db.execute("SELECT * FROM products");
-//   }
+  static fetchAll() {
+    const db = getDb();
 
-//   static findById(id) {
-//     return db.execute("SELECT * FROM products WHERE products.id = ?", [id]);
-//   }
-// };
+    // find()는 promise 대신 커서를 반환한다. 커서는 mongoDB에서 제공하는 객체로 단계별로 요소와 문서를 탐색한다.
+    // toArray()를 통해 JS 객체로 변경시킨다. 이는 수십~수백 개 정도되는 데이터를 다룰 때 쓰는게 좋다. 아니면 그냥 페이지네이션을 구현하는게 좋음.
+    return db
+      .collection("products")
+      .find()
+      .toArray()
+      .then((products) => {
+        console.log(products);
+        return products;
+      })
+      .catch((err) => console.log(err));
+  }
 
-const Sequelize = require("sequelize");
+  static findById(prodId) {
+    const db = getDb();
 
-const sequelize = require("../util/database");
+    return db
+      .collection("products")
+      .find({ _id: new mongodb.ObjectId(prodId) }) // ObjectId로 반환되기 때문에 _id를 string으로 활용하기 위해서 다음과 같은 처리를 해줘야함.
+      .next()
+      .then((product) => {
+        console.log(product);
+        return product;
+      })
+      .catch((err) => console.log(err));
+  }
 
-const Product = sequelize.define("product", {
-  id: {
-    type: Sequelize.INTEGER,
-    autoIncrement: true,
-    allowNull: false,
-    primaryKey: true,
-  },
-  title: Sequelize.STRING,
-  price: {
-    type: Sequelize.DOUBLE,
-    allowNull: false,
-  },
-  imageUrl: {
-    type: Sequelize.STRING,
-    allowNull: false,
-  },
-  description: {
-    type: Sequelize.STRING,
-    allowNull: false,
-  },
-});
+  static deleteById(prodId) {
+    const db = getDb();
+    db.collection("products")
+      .deleteOne({ _id: new mongodb.ObjectId(prodId) })
+      .then(() => {
+        console.log("Deleted!");
+      })
+      .catch((err) => console.log(err));
+  }
+}
 
 module.exports = Product;
