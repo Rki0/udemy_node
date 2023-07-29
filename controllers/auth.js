@@ -1,3 +1,4 @@
+const crypto = require("crypto"); // express 내장 라이브러리
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 
@@ -137,4 +138,115 @@ exports.postLogout = (req, res, next) => {
     console.log(err);
     res.redirect("/");
   });
+};
+
+exports.getRest = (req, res, next) => {
+  let message = req.flash("error");
+
+  if (message.length > 0) {
+    message = message[0];
+  } else {
+    message = null;
+  }
+
+  res.render("auth/reset", {
+    path: "/reset",
+    pageTitle: "Reset Password",
+    errorMessage: message,
+  });
+};
+
+// 비밀번호 재발급 이메일 보내기~
+exports.postReset = (req, res, next) => {
+  crypto.randomBytes(32, (err, buffer) => {
+    if (err) {
+      console.log(err);
+      return res.redirect("/reset");
+    }
+
+    const token = buffer.toString("hex"); // buffer가 16진수를 저장하므로 hex를 입력해서 전환해줘야한다.
+
+    User.findOne({ email: req.body.email })
+      .then((user) => {
+        if (!user) {
+          req.flash("error", "No account with that email.");
+          return res.redirect("/reset");
+        }
+
+        user.resetToken = token;
+        user.resetTokenExpiration = Date.now() + 3600000;
+        return user.save();
+      })
+      .then((result) => {
+        res.redirect("/");
+
+        // a 태그로 이동하는 링크의 token을 통해 우리가 보낸 메일이라는 것을 확인할 것이다!
+        transporter.sendMail({
+          from: `"Udemy Node.js Study" <${process.env.NODEMAILER_USER}>`,
+          to: process.env.NODEMAILER_USER,
+          subject: "Password Reset.",
+          html: `
+          <p>You requested a password reset</p>
+          <p>Click this <a href='http://localhost:5000/reset/${token}'>link</a> to set a new password.</p>
+          `,
+        });
+      })
+      .catch((err) => console.log(err));
+  });
+};
+
+exports.getNewPassword = (req, res, next) => {
+  // 이메일에 첨부한 링크의 파라미터로 들어있던 token을 가져온다.
+  const token = req.params.token;
+
+  // 토큰이 있는지 확인하고 유효 기간을 검증한다.
+  // $gt는 greater than이라는 뜻으로 현재 시간보다 높은지를 묻는 용도.
+  User.findOne({ resetToken: token, resetTokenExpiration: { $gt: Date.now() } })
+    .then((user) => {
+      let message = req.flash("error");
+
+      if (message.length > 0) {
+        message = message[0];
+      } else {
+        message = null;
+      }
+
+      res.render("auth/new-password", {
+        path: "/new-password",
+        pageTitle: "New Password",
+        errorMessage: message,
+        userId: user._id.toString(),
+        passwordToken: token,
+      });
+    })
+    .catch((err) => console.log(err));
+};
+
+exports.postNewPassword = (req, res, next) => {
+  const newPassword = req.body.password;
+  const userId = req.body.userId;
+  const passwordToken = req.body.passwordToken;
+
+  let resetUser;
+
+  User.findOne({
+    resetToken: passwordToken,
+    resetTokenExpiration: { $gt: Date.now() },
+    _id: userId,
+  })
+    .then((user) => {
+      resetUser = user;
+      return bcrypt.hash(newPassword, 12);
+    })
+    .then((hashedPassword) => {
+      resetUser.password = hashedPassword;
+      // DB에 key가 남아있을 필요가 없으므로 undefined 처리
+      resetUser.resetToken = undefined;
+      resetUser.resetTokenExpiration = undefined;
+      resetUser.save();
+    })
+    .then((result) => {
+      res.redirect("/login");
+    })
+    .catch((err) => console.log(err));
 };
