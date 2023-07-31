@@ -1,6 +1,7 @@
 const crypto = require("crypto"); // express 내장 라이브러리
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
+const { validationResult } = require("express-validator");
 
 const User = require("../models/user");
 
@@ -28,6 +29,11 @@ exports.getLogin = (req, res, next) => {
     path: "/login",
     pageTitle: "Login",
     errorMessage: message,
+    oldInput: {
+      email: "",
+      password: "",
+    },
+    validationErrors: [],
   });
 };
 
@@ -44,6 +50,12 @@ exports.getSignup = (req, res, next) => {
     path: "/signup",
     pageTitle: "Sign Up",
     errorMessage: message,
+    oldInput: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+    validationErrors: [],
   });
 };
 
@@ -57,26 +69,48 @@ exports.postLogin = async (req, res, next) => {
   const email = req.body.email;
   const password = req.body.password;
 
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).render("auth/login", {
+      path: "/login",
+      pageTitle: "Log In",
+      errorMessage: errors.array()[0].msg,
+      oldInput: {
+        email,
+        password,
+      },
+      validationErrors: errors.array(),
+    });
+  }
+
   // 꽤나 시간이 걸리므로, 가장 나중에 얘를 실행하던지, redirect 후 얘를 실행하던지 하는게 좋을듯. await 대신 return으로 ㅇㅇ.
-  await transporter
-    .sendMail({
-      from: `"Udemy Node.js Study" <${process.env.NODEMAILER_USER}>`,
-      to: process.env.NODEMAILER_USER,
-      subject: "This is test email from node.js server.",
-      text: "This is text",
-      html: "<h1>This is HTML</h1>",
-    })
-    .then(() => {
-      console.log("email is sent.");
-    })
-    .catch((err) => console.log(err));
+  // await transporter
+  //   .sendMail({
+  //     from: `"Udemy Node.js Study" <${process.env.NODEMAILER_USER}>`,
+  //     to: process.env.NODEMAILER_USER,
+  //     subject: "This is test email from node.js server.",
+  //     text: "This is text",
+  //     html: "<h1>This is HTML</h1>",
+  //   })
+  //   .then(() => {
+  //     console.log("email is sent.");
+  //   })
+  //   .catch((err) => console.log(err));
 
   User.findOne({ email: email })
     .then((user) => {
       if (!user) {
-        req.flash("error", "Invalid email or password.");
-
-        return res.redirect("/login");
+        return res.status(422).render("auth/login", {
+          path: "/login",
+          pageTitle: "Log In",
+          errorMessage: "Invalid email or password.",
+          oldInput: {
+            email,
+            password,
+          },
+          validationErrors: [],
+        });
       }
 
       bcrypt
@@ -92,8 +126,16 @@ exports.postLogin = async (req, res, next) => {
             });
           }
 
-          req.flash("error", "Invalid email or password.");
-          res.redirect("/login");
+          return res.status(422).render("auth/login", {
+            path: "/login",
+            pageTitle: "Log In",
+            errorMessage: "Invalid email or password.",
+            oldInput: {
+              email,
+              password,
+            },
+            validationErrors: [],
+          });
         })
         .catch((err) => console.log(err));
     })
@@ -103,29 +145,40 @@ exports.postLogin = async (req, res, next) => {
 exports.postSignup = (req, res, next) => {
   const email = req.body.email;
   const password = req.body.password;
-  const confirmPassword = req.body.confirmPassword;
 
-  User.findOne({ email: email })
-    .then((userDoc) => {
-      if (userDoc) {
-        req.flash("error", "E-Mail exists already.");
-        return res.redirect("/login");
-      }
+  // rotuer에 등록한 check 미들웨어에서 수집된 에러를 모아놓는 validationResult
+  const errors = validationResult(req);
 
-      return bcrypt
-        .hash(password, 12)
-        .then((hashedPassword) => {
-          const user = new User({
-            email,
-            password: hashedPassword,
-            cart: { items: [] },
-          });
+  // validation failed
+  if (!errors.isEmpty()) {
+    console.log(errors.array());
+    // 유효성 검사 실패 에러 422
+    return res.status(422).render("auth/signup", {
+      path: "/signup",
+      pageTitle: "Sign Up",
+      errorMessage: errors.array()[0].msg,
+      oldInput: {
+        email,
+        password,
+        confirmPassword: req.body.confirmPassword,
+      },
+      validationErrors: errors.array(),
+    });
+  }
 
-          return user.save();
-        })
-        .then((result) => {
-          res.redirect("/login");
-        });
+  bcrypt
+    .hash(password, 12)
+    .then((hashedPassword) => {
+      const user = new User({
+        email,
+        password: hashedPassword,
+        cart: { items: [] },
+      });
+
+      return user.save();
+    })
+    .then((result) => {
+      res.redirect("/login");
     })
     .catch((err) => {
       console.log(err);
