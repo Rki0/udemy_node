@@ -139,7 +139,14 @@ exports.postLogin = async (req, res, next) => {
         })
         .catch((err) => console.log(err));
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.postSignup = (req, res, next) => {
@@ -272,7 +279,14 @@ exports.getNewPassword = (req, res, next) => {
         passwordToken: token,
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.postNewPassword = (req, res, next) => {

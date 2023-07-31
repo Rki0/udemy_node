@@ -1,6 +1,7 @@
 const { validationResult } = require("express-validator");
 
 const Product = require("../models/product");
+const { default: mongoose } = require("mongoose");
 
 exports.getAddProduct = (req, res, next) => {
   if (!req.session.isLoggedIn) {
@@ -43,6 +44,7 @@ exports.postAddProduct = (req, res, next) => {
   }
 
   const product = new Product({
+    // _id: new mongoose.Types.ObjectId("64c31c61986f0e484491ba48"),
     title,
     price,
     description,
@@ -57,7 +59,14 @@ exports.postAddProduct = (req, res, next) => {
       console.log("Created Product");
       res.redirect("/admin/products");
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.getEditProduct = (req, res, next) => {
@@ -85,7 +94,14 @@ exports.getEditProduct = (req, res, next) => {
         validationErrors: [],
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.postEditProduct = (req, res, next) => {
@@ -132,7 +148,14 @@ exports.postEditProduct = (req, res, next) => {
         res.redirect("/admin/products");
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.getProducts = (req, res, next) => {
@@ -147,7 +170,14 @@ exports.getProducts = (req, res, next) => {
         path: "/admin/products",
       });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
 
 exports.postDeleteProduct = (req, res, next) => {
@@ -158,5 +188,12 @@ exports.postDeleteProduct = (req, res, next) => {
       console.log("Destroyed product");
       res.redirect("/admin/products");
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      // res.redirect("/500");
+
+      const error = new Error(err);
+
+      error.httpStatusCode = 500;
+      return next(error); // express가 error를 next로 받는 경우, 모든 미들웨어를 건너 뛰고 오류 처리 미들웨어로 이동함.
+    });
 };
