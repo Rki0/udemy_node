@@ -6,6 +6,8 @@ const PDFDocument = require("pdfkit");
 const Product = require("../models/product");
 const Order = require("../models/order");
 
+const ITEMS_PER_PAGE = 1;
+
 exports.getProducts = (req, res, next) => {
   Product.find()
     .then((products) => {
@@ -33,7 +35,18 @@ exports.getProduct = (req, res, next) => {
 };
 
 exports.getIndex = (req, res, next) => {
+  const page = +req.query.page;
+  let totalItems;
+
   Product.find()
+    .countDocuments() // 데이터의 개수만 얻을 수 있는 메서드
+    .then((numOfProducts) => {
+      totalItems = numOfProducts;
+
+      return Product.find()
+        .skip((page - 1) * ITEMS_PER_PAGE) // 2 페이지라면 1 * 2가 되어 2개의 데이터를 생략하고 추출한다는 뜻이 된다.
+        .limit(ITEMS_PER_PAGE); // 지정한 숫자만큼 받아오는 데이터 양을 제한한다.
+    })
     .then((products) => {
       res.render("shop/index", {
         prods: products,
@@ -41,6 +54,13 @@ exports.getIndex = (req, res, next) => {
         path: "/",
         // isAuthenticated: req.session.isLoggedIn,
         // csrfToken: req.csrfToken(),
+        currentPage: page,
+        // totalProducts: totalItems, // 총 몇 개의 데이터를 가지고 있는지 페이지에 알려줘야 동적으로 pagination 생성이 가능하다.
+        hasNextPage: ITEMS_PER_PAGE * page < totalItems, // 총 개수보다 한 페이지에 존재해야할 아이템 개수가 적으면 pagination을 만들지 않아도 되니까...
+        hasPreviousPage: page > 1,
+        nextPage: page + 1,
+        previousPage: page - 1,
+        lastPage: Math.ceil(totalItems / ITEMS_PER_PAGE),
       });
     })
     .catch((err) => console.log(err));
