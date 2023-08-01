@@ -1,71 +1,132 @@
-// core module of node.js
-// http = launch a server, send Req
-// https = launch a SSL server
-// fs =
-// path
-// os
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const expressHbs = require("express-handlebars"); // 템플릿 엔진마다 사용법이 다르니 문서를 참고하자
+const mongoose = require("mongoose");
+const dotev = require("dotenv");
+const session = require("express-session");
+const MongoDBStore = require("connect-mongodb-session")(session);
+const csrf = require("csurf");
+const flash = require("connect-flash");
+const multer = require("multer");
 
-const http = require("http");
-// const fs = require("fs");
+dotev.config();
 
-const routes = require("./routes");
+const MONGODB_URI = `mongodb+srv://pky00823:${process.env.DB_PASSWORD}@cluster0.cqkdk1n.mongodb.net/shop?retryWrites=true`;
 
-const server = http.createServer(routes.handler);
+const adminRoutes = require("./routes/admin");
+const shopRoutes = require("./routes/shop");
+const authRoutes = require("./routes/auth");
+const errorControllers = require("./controllers/error");
+const User = require("./models/user");
 
-console.log(routes.someText);
+const app = express();
+const store = new MongoDBStore({
+  uri: MONGODB_URI,
+  collection: "sessions",
+});
+const csrfProtection = csrf();
 
-// 서버를 생성하고 그 때마다 실행될 함수를 정의할 수 있다.
-// const server = http.createServer((req, res) => {
+const fileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // 첫 번째 인자는 에러, 두 번째 인자는 저장할 폴더 경로
+    cb(null, "images");
+  },
+  filename: (req, file, cb) => {
+    cb(null, new Date().toISOString() + "-" + file.originalname);
+  },
+});
 
-//   // const url = req.url;
-//   // const method = req.method;
-//   // if (url === "/") {
-//   //   res.setHeader("Content-Type", "text/html");
-//   //   res.write("<html>");
-//   //   res.write("<head><title>My First Page</title></head>");
-//   //   res.write(
-//   //     "<body><form action='/message' method='POST'><input type='text' name='message' /><button type='submit'>Submit</button></form></body>"
-//   //   );
-//   //   res.write("</html>");
-//   //   return res.end();
-//   // }
-//   // if (url === "/message" && method === "POST") {
-//   //   const body = [];
-//   //   // on은 이벤트를 들을 수 있다.
-//   //   req.on("data", (chunk) => {
-//   //     console.log(chunk);
-//   //     // 요청에 대한 모든 data를 얻을 때까지 이를 반복한다.
-//   //     body.push(chunk);
-//   //   });
-//   //   return req.on("end", () => {
-//   //     // chunk를 받은 후 이를 다루기 위해서는 버스 정류장같은 장소에서 상호 작용을 해야하는데, 그게 Buffer
-//   //     const parsedBody = Buffer.concat(body).toString(); // 현재 들어오는 데이터가 문자열이니까 toString을 통해 문자열로 변환해줌. 파일이라면 또 다른 처리를 해줘야하곘지?
-//   //     // 이제 처리할 수 있다.
-//   //     console.log(parsedBody);
-//   //     const message = parsedBody.split("=")[1];
-//   //     // fs.writeFileSync("message.txt", message); // writeFile 메서드에 sync가 붙어있기 때문에 파일이 생성될 때까지 코드 실행을 멈춘다.
-//   //     // // 따라서
-//   //     // // 이 아래 코드보다 if 밖 코드가 먼저 실행되므로 cannot send header 에러가 발생함.
-//   //     // // 이를 막기 위해서 req.on 앞에 return을 써준다.
-//   //     fs.writeFile("message.txt", message, (err) => {
-//   //       res.statusCode = 302;
-//   //       res.setHeader("Location", "/");
-//   //       return res.end();
-//   //     });
-//   //   });
-//   // }
-//   // // console.log(req.url, req.method, req.headers);
-//   // // node.js는 Event Loop를 가지고 있기 때문에 event listener가 등록되어 사라지지 않았다면 계속해서 동작한다.
-//   // // process.exit(); // event loop를 끊을 수 있다. 그럼 앱이 종료된다.
-//   // res.setHeader("Content-Type", "text/html");
-//   // res.write("<html>");
-//   // res.write("<head><title>My First Page</title></head>");
-//   // res.write("<body><h1>Hello</h1></body>");
-//   // res.write("</html>");
-//   // res.end(); // res를 입력하고 끝났다고 end로 알려주자. 이 이후로 코드를 작성하면 에러가 발생한다. 클라이언트로 두 번 전송하던 에러!!
-// });
+const fileFilter = (req, file, cb) => {
+  if (
+    file.mimetype === "image/png" ||
+    file.mimetype === "image/jgp" ||
+    file.mimetype === "image/jpeg"
+  ) {
+    cb(null, true);
+  } else {
+    cb(null, false);
+  }
+};
 
-// node.js가 종료되지 않고, 계속 실행되게 해준다.
-// 이 코드가 있기 전에는 "node app.js"를 하면 바로 종료된다.
+app.set("view engine", "ejs");
+app.set("views", "views");
 
-server.listen(5000);
+app.use(bodyParser.urlencoded({ extended: false })); // image, 파일 같은 경우 bodyparser가 문자열로 그대로 받아오기 때문에, 올바르지 않은 정보가 저장된다.
+
+app.use(
+  multer({ storage: fileStorage, fileFilter: fileFilter }).single("image")
+); // input의 name과 동일하게 입력해줘야함.
+
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/images", express.static(path.join(__dirname, "images")));
+
+app.use(
+  session({
+    secret: "my secret",
+    resave: false,
+    saveUninitialized: false,
+    store: store,
+  })
+);
+
+// get 이외의 데이터를 변경하는 모든 요청에 대해 뷰에 csrf 토큰이 있는지 확인한다.
+app.use(csrfProtection);
+
+app.use(flash());
+
+app.use((req, res, next) => {
+  // res.locals를 사용하면 view에 입력할 로컬 변수를 설정할 수 있게 된다.
+  res.locals.isAuthenticated = req.session.isLoggedIn;
+  res.locals.csrfToken = req.csrfToken();
+  next();
+});
+
+// mongoDB session store는 mongoose 모델을 이해할 수 없기 때문에 처리를 해줘야함.
+app.use((req, res, next) => {
+  // 로그아웃 상태라면 user 정보가 없기 때문에 next로 넘김
+  if (!req.session.user) {
+    return next();
+  }
+
+  User.findById(req.session.user._id)
+    .then((user) => {
+      if (!user) {
+        return next();
+      }
+
+      req.user = user;
+      next();
+    })
+    .catch((err) => {
+      // 만약 비동기식 코드인 then, catch 내부애서 throw가 된다면 아래에 있는 에러 핸들링(500 등)에 도달하지 않는다.
+      // 따라서 next로 에러를 넘겨준다.
+      // throw new Error(err);
+      next(new Error(err));
+    });
+});
+
+app.use("/admin", adminRoutes);
+app.use(shopRoutes);
+app.use(authRoutes);
+
+app.use("/500", errorControllers.get500);
+app.use(errorControllers.get404);
+
+app.use((error, req, res, next) => {
+  // res.status(error.httpStatusCode).render('/500');
+  // res.redirect("/500");
+  res.status(500).render("500", {
+    pageTitle: "Error!",
+    path: "/500",
+    isAuthenticated: req.session.isLoggedIn,
+  });
+});
+
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => {
+    app.listen(5000);
+    console.log("Connected");
+  })
+  .catch((err) => console.log(err));
