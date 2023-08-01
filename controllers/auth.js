@@ -6,10 +6,10 @@ const { validationResult } = require("express-validator");
 const User = require("../models/user");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  // service: "gmail",
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  // port: 587,
+  // secure: false,
   auth: {
     user: process.env.NODEMAILER_USER,
     pass: process.env.NODEMAILER_PASS,
@@ -91,7 +91,7 @@ exports.postLogin = async (req, res, next) => {
   //     to: process.env.NODEMAILER_USER,
   //     subject: "This is test email from node.js server.",
   //     text: "This is text",
-  //     html: "<h1>This is HTML</h1>",
+  //     // html: "<h1>This is HTML</h1>",
   //   })
   //   .then(() => {
   //     console.log("email is sent.");
